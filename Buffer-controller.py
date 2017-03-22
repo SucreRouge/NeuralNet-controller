@@ -2,6 +2,7 @@ import socket
 import numpy as np
 import pickle
 import BufferRW as bf
+from helpers import *
 
 CLK = int(100e6) ## CLOCK speed in FPGA
 
@@ -54,24 +55,9 @@ sock.connect((host,port))
 
 try:
     paramBuf = bf.Construct_PARAMETERS(params, lengths)
-    data_string = pickle.dumps('a\n')
-#    data_string = pickle.dumps([command['rp'],100])
-    print data_string#[0:100]
-#    pickle.dump(test, open("file.txt", "w"))
-    sock.sendall(data_string)
-    
-    print "Client: Waiting for answer ..."
-    
-    data_str = ''
-    while True:
-        chunk = sock.recv(1024)
-        print chunk, 'kjh'
-        if not chunk:
-            break
-        data_str += chunk
-#    data_string = sock.recv(4096)
-    data = pickle.loads(data_str)
-    print 'Client: Received:', data
+    send_pickle_stream(paramBuf, sock)
+    print "Client: Waiting for answer \t...\t"
+    answer = read_pickle_stream(sock)
     
 finally:
     sock.close()
