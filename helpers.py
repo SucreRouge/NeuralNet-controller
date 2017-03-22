@@ -1,13 +1,13 @@
 import socket
 import pickle
 
-def read_pickle_stream(socket):
+def read_pickle_stream(sock):
 
     print 'Client: Recieving data \t...\t',
 
     serialized_data = ''
     while True:
-        chunk = socket.recv(1024)
+        chunk = sock.recv(1024)
         if not chunk:
             break
         serialized_data += chunk
@@ -18,7 +18,7 @@ def read_pickle_stream(socket):
 
     return data
 
-def send_pickle_stream(data, socket):
+def send_pickle_stream(data, sock):
 
     data_string = pickle.dumps(data)
     print "Client: Sending data \t...\t",
