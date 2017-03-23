@@ -31,16 +31,15 @@ sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
 try:
    
-    for wait in np.random.gamma(10, 10, 1000):
-		
-
+    for wait in np.random.gamma(10, 10, 20):
 		
 		sleep(wait*0.01)
 
 		address = randint(0,dimension)
    		time_stamp = pd.Timestamp(np.datetime64(datetime.datetime.now()))
 
-   		data = { "time": time_stamp, "address": address }
+   		# data = { "time": time_stamp, "address": address }
+   		data = { time_stamp:address }
 
 		send_pickle_stream(data, sock, target= (host,port))
 		# answer = read_pickle_stream(sock)
