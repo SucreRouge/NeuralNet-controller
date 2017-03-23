@@ -31,11 +31,13 @@ sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
 try:
    
-    for i in range(5):
+    for wait in np.random.gamma(10, 10, 1000):
 		
-    	sleep(0.05)
+
 		
-   		address = randint(0,dimension)
+		sleep(wait*0.01)
+
+		address = randint(0,dimension)
    		time_stamp = pd.Timestamp(np.datetime64(datetime.datetime.now()))
 
    		data = { "time": time_stamp, "address": address }
