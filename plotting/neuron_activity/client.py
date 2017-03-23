@@ -24,16 +24,16 @@ def send_pickle_stream(data, sock, target):
 
 host = socket.gethostname()
 port = 60000
-dimension = 4*4 - 1
+dimension = 30*30 - 1
 
 # Create a socket (SOCK_DGRAM means a UPD socket)
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
 try:
    
-    for wait in np.random.gamma(10, 10, 20):
+    for wait in np.random.gamma(10, 10, 500):
 		
-		sleep(wait*0.01)
+		sleep(wait*0.0001)
 
 		address = randint(0,dimension)
    		time_stamp = pd.Timestamp(np.datetime64(datetime.datetime.now()))
