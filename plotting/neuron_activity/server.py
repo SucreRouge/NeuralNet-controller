@@ -28,7 +28,7 @@ class DataUDPHandler(SocketServer.BaseRequestHandler):
     def handle(self):
     
         data = self.read_pickle_stream()
-        self.send_pickle_stream(data)
+        # self.send_pickle_stream(data)
    
 
 host = socket.gethostname()

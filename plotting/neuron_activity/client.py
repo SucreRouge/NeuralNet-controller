@@ -1,5 +1,6 @@
-import socket, time
+import socket, datetime
 import numpy as np
+import pandas as pd
 import pickle
 from random import randint
 
@@ -31,10 +32,13 @@ try:
    
     for i in range(5):
 		
-   		data = randint(0,dimension)
+   		address = randint(0,dimension)
+   		time_stamp = pd.Timestamp(np.datetime64(datetime.datetime.now()))
+
+   		data = { "time": time_stamp, "address": address }
 
 		send_pickle_stream(data, sock, target= (host,port))
-		answer = read_pickle_stream(sock)
+		# answer = read_pickle_stream(sock)
 		
 finally:
     sock.close()
