@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 import pickle
 from random import randint
+from time import sleep
 
 def read_pickle_stream(sock):
 
@@ -31,6 +32,8 @@ sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 try:
    
     for i in range(5):
+		
+    	sleep(0.05)
 		
    		address = randint(0,dimension)
    		time_stamp = pd.Timestamp(np.datetime64(datetime.datetime.now()))
