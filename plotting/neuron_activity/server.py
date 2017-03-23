@@ -34,6 +34,7 @@ class DataUDPHandler(SocketServer.BaseRequestHandler):
 
             s = pd.Series(dict(zip(self.server.cache["time"], self.server.cache["address"])), name='address')
             self.server.hdf_store.append(s.name,s)
+            self.server.hdf_store.flush()
 
             self.server.cache = defaultdict(list)
 
@@ -45,13 +46,18 @@ class DataUDPHandler(SocketServer.BaseRequestHandler):
         self.server.cache["time"].append(data.keys()[0])
         self.server.cache["address"].append(data.values()[0])        
 
+    def update_data_tail(self, tail_elements=5):
+
+        timestamps = self.server.hdf_store.select_column('address','index')
+        self.server.hdf_store_tail = self.server.hdf_store.select('address',where=timestamps[-tail_elements:].index)        
+
     def handle(self):
     
         data = self.read_pickle_stream()   
         
         self.update_data_cache(data)
-        
-        print self.server.hdf_store
+        self.update_data_tail()
+
 
     def finish(self):
         pass
@@ -63,6 +69,7 @@ port = 60000
 server = SocketServer.UDPServer((host,port), DataUDPHandler)
 server.cache = defaultdict(list)
 server.cache_size = 1
-server.hdf_store = pd.HDFStore("test.store", "w")
+server.hdf_store = pd.HDFStore("test.h5", "w")
+server.hdf_store_tail = None
 # Launch server. It will keep running unti Ctrl-C.
 server.serve_forever()
