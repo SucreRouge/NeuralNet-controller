@@ -3,9 +3,11 @@ import SocketServer
 import pickle
 import pandas as pd
 from collections import defaultdict
+import matplotlib
 from matplotlib import pyplot as plt
-from matplotlib.dates import DateFormatter, AutoDateLocator, AutoDateFormatter
+import matplotlib.dates as dates
 import datetime
+import numpy as np
 
 class DataUDPHandler(SocketServer.BaseRequestHandler):
     """
@@ -17,12 +19,7 @@ class DataUDPHandler(SocketServer.BaseRequestHandler):
     """
     def read_pickle_stream(self):
 
-        # print 'Server: Recieving data \t...\t',
-        data = pickle.loads(self.request[0])
-        # print 'done.'
-        # print 'Server: data =', data  
-
-        return data
+        return pickle.loads(self.request[0])
 
     def send_pickle_stream(self, data):
 
@@ -30,36 +27,57 @@ class DataUDPHandler(SocketServer.BaseRequestHandler):
         self.request[1].sendto(pickle.dumps(data), self.client_address)
         # print "done."
 
-    def flush_data_cache(self, max_cache_size):
+    def process_row(self, data, hdf5_key, cache, max_cache_size, tail_elements):
+        """
+        Append row data to the store 'hdf5_key'.
 
-        # check if cache is full, if so, make pd.series and store it, then reset cache
-        if len(self.server.cache["time"]) >= max_cache_size:
+        When the number of items in the cache reaches max_cache_size,
+        append the data rows to the HDF5 store and clear the cache.
 
-            s = pd.Series(dict(zip(self.server.cache["time"], self.server.cache["address"])), name='address')
-            self.server.hdf_store.append(s.name,s)
-            self.server.hdf_store.flush()
+        """
+        def get_cache_size(cache):
 
-            self.server.cache = defaultdict(list)
+            if cache.keys():
 
-    def update_data_cache(self, data):
+                cache_keys = cache.keys()
+                first_key = cache_keys[0]
 
-        self.flush_data_cache(max_cache_size = self.server.cache_size)
+                return len(cache[first_key])
 
-        # we grab the single element in the dict lists to avoid lists of lists
-        self.server.cache["time"].append(data.keys()[0])
-        self.server.cache["address"].append(data.values()[0])        
+            else:
+                return 0
 
-    def update_data_tail(self, tail_elements=10):
+        if get_cache_size(cache) >= max_cache_size:
+            self.store_and_clear(cache, hdf5_key)
+            self.update_data_tail(hdf5_key, cache , tail_elements)
+            self.server.store_tail_changed = True
+        else:
+            self.server.store_tail_changed = False
+
+        for key, item in data.iteritems():
+            cache[key].append(item)
+
+    def store_and_clear(self, data, hdf5_key):
+        """
+        Convert the cached data dict to a DataFrame and append that to HDF5.
+        """
+        df = pd.DataFrame(data)
+        self.server.hdf_store.append(hdf5_key, df)
+        data.clear()
+
+    def update_data_tail(self, hdf5_key, cache, tail_elements):
 
         if self.server.hdf_store:
 
-            timestamps = self.server.hdf_store.select_column('address','index')
-            self.server.hdf_store_tail = self.server.hdf_store.select('address',where=timestamps[-tail_elements:].index)        
+            mask = self.server.hdf_store.select_column(hdf5_key,'index')
+            df_tail = self.server.hdf_store.select(hdf5_key,where=mask[-tail_elements:].index)        
+            self.server.hdf_store_tail = df_tail.reset_index(drop=True)
 
     def update_tail_plot(self):
 
-        xdata = self.server.hdf_store_tail.index
-        ydata = self.server.hdf_store_tail.tolist()
+        xdata = self.server.hdf_store_tail["timedelta"]
+        xdata = [x/np.timedelta64(1, 's') for x in xdata]
+        ydata = self.server.hdf_store_tail["address"]
 
         #Update data (with the new _and_ the old points)
         self.server.lines.set_xdata(xdata)
@@ -67,9 +85,6 @@ class DataUDPHandler(SocketServer.BaseRequestHandler):
         #Need both of these in order to rescale
         self.server.ax.relim()
         self.server.ax.autoscale_view()
-        # Set the ticks to deal with date items
-        self.server.ax.xaxis.set_major_locator(AutoDateLocator())
-        self.server.ax.xaxis.set_major_formatter( DateFormatter( '%H:%M:%S:%f' ) )
         #We need to draw *and* flush
         self.server.fig.canvas.draw()
         self.server.fig.canvas.flush_events()
@@ -78,10 +93,9 @@ class DataUDPHandler(SocketServer.BaseRequestHandler):
     
         data = self.read_pickle_stream()   
         
-        self.update_data_cache(data)
-        self.update_data_tail(tail_elements=100)
-
-        if self.server.hdf_store:
+        self.process_row(data, hdf5_key = "address", cache = self.server.cache, max_cache_size = self.server.max_cache_size, tail_elements = self.server.tail_elements)
+       
+        if self.server.hdf_store and self.server.store_tail_changed:
 
             self.update_tail_plot()
 
@@ -91,9 +105,11 @@ port = 60000
 # Create the server, binding it to host and port
 server = SocketServer.UDPServer((host,port), DataUDPHandler)
 server.cache = defaultdict(list)
-server.cache_size = 1
+# server.cache = {}
+server.max_cache_size = 10
+server.tail_elements = 50
 server.hdf_store = pd.HDFStore("test.h5", "w")
-server.hdf_store_tail = pd.Series()
+server.hdf_store_tail = None
 
 # Prepare stuff for plotting
 server.fig, server.ax = plt.subplots(1, 1)
@@ -101,7 +117,7 @@ server.lines, = server.ax.plot([],[], '+')
 server.ax.set_autoscaley_on(True)
 
 plt.xticks(rotation=45)
-server.ax.set_xlabel('time')
+server.ax.set_xlabel('time [s]')
 server.ax.set_ylabel('adress id')
 plt.subplots_adjust( bottom=0.3)
 plt.show(block=False)
