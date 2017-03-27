@@ -99,7 +99,7 @@ class DataUDPHandler(SocketServer.BaseRequestHandler):
 
             self.update_tail_plot()
 
-host = socket.gethostname()
+host = '161.122.21.46'
 port = 60000
 
 # Create the server, binding it to host and port
