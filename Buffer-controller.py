@@ -1,12 +1,10 @@
 import socket
 import numpy as np
 import pickle
-<<<<<<< Updated upstream
+
 import BufferRW as bf
-=======
-from BufferRW import *
 from helpers import *
->>>>>>> Stashed changes
+
 
 CLK = int(100e6) ## CLOCK speed in FPGA
 
@@ -58,11 +56,13 @@ sock.connect((host,port))
 
 try:
 
+
     paramBuf = Construct_PARAMETERS(params, lengths)
     send_pickle_stream([command['rc'], test], sock)
 
     answer = read_pickle_stream(sock)
 #    print Reconstruct_PARAMETERS(answer[BUF_SIZE-sum(lengths):], lengths)
+
 finally:
     sock.close()
 
