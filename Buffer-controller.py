@@ -1,7 +1,12 @@
 import socket
 import numpy as np
 import pickle
+<<<<<<< Updated upstream
 import BufferRW as bf
+=======
+from BufferRW import *
+from helpers import *
+>>>>>>> Stashed changes
 
 CLK = int(100e6) ## CLOCK speed in FPGA
 
@@ -16,13 +21,12 @@ AD = 3                                 ## (0 - 15) 4bits
 AP_MAX = 60                            ## (0 - 255) 8bits
 AD_MAX = 30                            ## (0 - 15) 8bits
 
-params = [AD_MAX, AP_MAX, AD, AP, TAU_POST, TAU_PRE, EXT_W, INH_W, THR, TAU]
-lengths = [8, 8, 4, 4, 25, 25, 14, 14, 14, 25]
-
+params = [TAU, THR, INH_W, EXT_W, TAU_PRE, TAU_POST, AP, AD, AP_MAX, AD_MAX]
+lengths = [25, 14, 14, 14, 25, 25, 4, 4, 8, 8]
 
 cam_data = np.zeros((8192,3), dtype=int)
 inh_bit = 0
-for i in range(1024):
+for i in range(1023):
     cam_data[i,0] = i
     cam_data[i,1] = i+1
     cam_data[i,2] = inh_bit
@@ -30,8 +34,8 @@ for i in range(1024):
         inh_bit = 0
     else: inh_bit = 1
     
-test = bf.Construct_CAM(cam_data)
-test_dec = bf.Reconstruct_CAM(test)
+test = Construct_CAM(cam_data)
+test_dec = Reconstruct_CAM(test)
 
 """
     This program passes and receives binarry arrays to and from RPi.
@@ -45,7 +49,7 @@ test_dec = bf.Reconstruct_CAM(test)
         3 - 'wp' - write PARAMETERS (PARAMETERS are sent after these two symbols)
         4 - 'rw' - read SYNAPTIC WEIGHTS
 """
-command = {'rc':0, 'wc':1, 'rp':2, 'wp':3, 'rw':4}
+command = {'rc':0, 'wc':1, 'rp':2, 'wp':3, 'rw':4, 'connection':5}
 
 host = '161.122.21.47'
 port = 7777
@@ -53,26 +57,12 @@ sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 sock.connect((host,port))
 
 try:
-    paramBuf = bf.Construct_PARAMETERS(params, lengths)
-    data_string = pickle.dumps('a\n')
-#    data_string = pickle.dumps([command['rp'],100])
-    print data_string#[0:100]
-#    pickle.dump(test, open("file.txt", "w"))
-    sock.sendall(data_string)
-    
-    print "Client: Waiting for answer ..."
-    
-    data_str = ''
-    while True:
-        chunk = sock.recv(1024)
-        print chunk, 'kjh'
-        if not chunk:
-            break
-        data_str += chunk
-#    data_string = sock.recv(4096)
-    data = pickle.loads(data_str)
-    print 'Client: Received:', data
-    
+
+    paramBuf = Construct_PARAMETERS(params, lengths)
+    send_pickle_stream([command['rc'], test], sock)
+
+    answer = read_pickle_stream(sock)
+#    print Reconstruct_PARAMETERS(answer[BUF_SIZE-sum(lengths):], lengths)
 finally:
     sock.close()
 

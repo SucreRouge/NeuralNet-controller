@@ -19,6 +19,14 @@ import sys
 
 """
 
+BUF_SIZE = 256  ## Buffer size
+NADR_WIDTH = 10 ## Neuron address space
+SADR_WIDTH = 13 ## Synapse (and CAM) address space
+
+WEIGHT_SIZE = 11 ## Synaptic weight size in bits
+
+CAM_READ = 2**SADR_WIDTH ## How many CAM rows to read?
+
 
 def Construct_PARAMETERS(params, lengths):
     """
@@ -42,7 +50,7 @@ def Construct_PARAMETERS(params, lengths):
         [15:8]    AP_MAX
         [7:0]     AD_MAX
     """
-    data = np.zeros(256, dtype = bool)
+    buf_data = np.zeros(BUF_SIZE, dtype = int)
     
     for i in range(len(params)): ## Here we check if parameters do not exceed their binary spaces.
         param_bin = bin(params[i])[2:]
@@ -51,13 +59,14 @@ def Construct_PARAMETERS(params, lengths):
              sys.exit()
     print 'No errors in parameter values were found.'
 
-    count = 0
+    pointer = 0
+    param_str = ''
     for i in range(len(params)):
-        temp = bin(params[i])[2:]     ## Converting i-th parameter to binary
-        for ii in range(len(temp)):
-            data[255-count-ii] = int(temp[len(temp)-1-ii])    ## Writing parameters into the BUFFER so that LSB of AD_MAX is at BUFFER[255]
-        count += lengths[i]     ## Leaving zeros if parameter takes less binary space than is provided for it
-    return data
+        param_str += ('{0:0' + str(lengths[i]) + 'b}').format(params[i])
+        pointer += lengths[i]
+        
+    buf_data[BUF_SIZE-sum(lengths):] = map(int, list(param_str))
+    return buf_data
 
 
 def Construct_CAM(cam_data):
@@ -67,38 +76,42 @@ def Construct_CAM(cam_data):
     21 columns are divided in the following way (Python array indexes): [0:9] PRE_ADR, [10:19] POST_ADR, [20] INH_BIT
     
     """
-    data = np.zeros((8192,21), dtype = bool)
-    
-    for i in range(len(data)):
-        pre_adr = bin(cam_data[i,0])[2:]
-        post_adr = bin(cam_data[i,1])[2:]
-        for ii in range(len(pre_adr)):
-            data[i,9-ii] = int(pre_adr[len(pre_adr)-1-ii])
-        for ii in range(len(post_adr)):
-            data[i,19-ii] = int(post_adr[len(post_adr)-1-ii])   
-        data[i,20] = int(cam_data[i,2])
-    return data
+    cam_array = np.zeros((2**SADR_WIDTH, 2*NADR_WIDTH+1), dtype = int)
+
+    for i in range(len(cam_array)):
+        pre_adr = ('{0:0' + str(NADR_WIDTH) + 'b}').format(cam_data[i,0])
+        post_adr = ('{0:0' + str(NADR_WIDTH) + 'b}').format(cam_data[i,1])
+        inh_bit = str(cam_data[i,2])
+        cam_row = pre_adr + post_adr + inh_bit
+        cam_array[i] = map(int, list(cam_row))
+                
+    return cam_array
  
     
-def Reconstruct_PARAMETERS(buf, lengths):
+def Reconstruct_PARAMETERS(param_bin, lengths):
     """
-    Reconstructs PARAMETER values from the 256 bit binary PISO array received from FPGA (via RPi). 
+    Reconstructs PARAMETER values from trimmed 256 bit binary PISO array received from FPGA (via RPi). 
     Array 'lenghts' is used for splitting the buffer into separate parameter sections.
     
     Note: Parameter values occupy PISO[172:32] bits, corresponding to Python array indexes [255-172:255-32] = [83:224]
     
+    IMPORTANT: This function expects ONLY the PARAMETER part of the PISO !
+    
     """
-    count = 0
-    data = []
-    param_buf = buf[83:224]; len_param = len(param_buf)
+    if len(param_bin) != sum(lengths):
+        print 'ERROR: Length of the passed binary array (', len(param_bin), ') does not match the sum of expected parameter lengths (', sum(lengths), ').'
+        sys.exit()
+    
+    pointer = 0
+    param_dec = []
+#    param_bin = buf[83:224]; ## WEIGHT - 11bits, CAM_DATA - 21bit ---> 224 = 256-11-21; 83 = 256-11-21-141.
     for i in range(len(lengths)):
-        temp = param_buf[len_param-count-lengths[i]:len_param-count]
-        temp_dec = 0
-        for ii in range(lengths[i]):
-            temp_dec += 2**ii*temp[lengths[i]-ii-1]
-        data.append(temp_dec)
-        count += lengths[i]
-    return data
+        temp_bin = ''.join(str(int(k)) for k in param_bin[pointer:pointer + lengths[i]])
+        temp_dec = int(temp_bin, 2)
+        
+        param_dec.append(temp_dec)
+        pointer += lengths[i]
+    return param_dec
 
 
 def Reconstruct_CAM(cam_bin):
@@ -106,13 +119,15 @@ def Reconstruct_CAM(cam_bin):
     Reconstructs decimal CAM table from the binary array received from FPGA (via RPi).
     
     """
-    cam_dec = np.zeros((8192,3), dtype=int)
+    cam_dec = np.zeros((2**SADR_WIDTH,3), dtype = int)
     
-    for i in range(8192):
-        for ii in range(10):
-            cam_dec[i,0] += 2**ii*cam_bin[i,10-ii-1]
-            cam_dec[i,1] += 2**ii*cam_bin[i,20-ii-1]
-        cam_dec[i,2] = cam_bin[i,20]
+    for i in range(CAM_READ):
+        pre_adr = ''.join(str(int(k)) for k in cam_bin[i, 0:NADR_WIDTH])
+        post_adr = ''.join(str(int(k)) for k in cam_bin[i, NADR_WIDTH:2*NADR_WIDTH])
+        
+        cam_dec[i,0] = int(pre_adr, 2)
+        cam_dec[i,1] = int(post_adr, 2)
+        cam_dec[i,2] = int(cam_bin[i, 2*NADR_WIDTH])
     return cam_dec
         
         
@@ -125,12 +140,15 @@ def Reconstruct_WEIGHTS(weights_bin):
     weights_dec = np.zeros((len(weights_bin)), dtype = int)        
         
     for i in range(len(weights_bin)):
-        for ii in range(10):
-            weights_dec[i] += 2**ii*weights_bin[i,10-ii-1]
+        weight_str = ''.join(str(int(k)) for k in weights_bin[i])
+        weights_dec[i] = int(weight_str, 2)
     return weights_dec
         
-        
-        
-        
-#to_FPGA = Construct_paramBuf(params, lengths)
-#from_FPGA = Deconstruct_params(to_FPGA, lengths)
+
+
+
+
+
+
+
+
