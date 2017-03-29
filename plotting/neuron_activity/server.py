@@ -100,8 +100,9 @@ class DataUDPHandler(SocketServer.BaseRequestHandler):
             self.update_tail_plot()
 
 host = '161.122.21.46'
-port = 60000
+port = 60001
 
+SocketServer.UDPServer.allow_reuse_address = True
 # Create the server, binding it to host and port
 server = SocketServer.UDPServer((host,port), DataUDPHandler)
 server.cache = defaultdict(list)
@@ -113,13 +114,13 @@ server.hdf_store_tail = None
 
 # Prepare stuff for plotting
 server.fig, server.ax = plt.subplots(1, 1)
-server.lines, = server.ax.plot([],[], '+')
+server.lines, = server.ax.plot([],[], 'o')
 server.ax.set_autoscaley_on(True)
 
 plt.xticks(rotation=45)
 server.ax.set_xlabel('time [s]')
 server.ax.set_ylabel('adress id')
-plt.subplots_adjust( bottom=0.3)
+plt.subplots_adjust(bottom=0.3)
 plt.show(block=False)
 
 server.drawing = plt.plot()

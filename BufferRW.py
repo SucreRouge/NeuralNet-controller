@@ -55,7 +55,7 @@ def Construct_PARAMETERS(params, lengths):
     for i in range(len(params)): ## Here we check if parameters do not exceed their binary spaces.
         param_bin = bin(params[i])[2:]
         if len(param_bin) > lengths[i]:
-             print 'ERROR: Value', params[i], 'cannot be converted into a', lengths[i], 'bit binary number. Maximum encodable number is', 2**lengths[i]-1,'.'
+             print 'ERROR: Value', params[i], 'cannot be converted into ', lengths[i], 'bit binary number. Maximum encodable number is', 2**lengths[i]-1,'.'
              sys.exit()
     print 'No errors in parameter values were found.'
 
@@ -86,7 +86,33 @@ def Construct_CAM(cam_data):
         cam_array[i] = map(int, list(cam_row))
                 
     return cam_array
- 
+
+
+def Construct_WEIGHTS(syn_data, const = True):
+    """
+    Constructs 8192x11 binary WEIGHT table to initiate synaptic weights.
+    const = True/False indicates whether syn_data is a constant initial weight for all synapses, or array of individual values.
+    
+    """
+    syn_array = np.zeros((2**SADR_WIDTH, 11), dtype = int)
+    
+    if const == True:
+        if syn_data >= 2**11:
+            print 'ERROR: Value', syn_data, 'cannot be converted into 11 bit binary number. Maximum encodable number is', 2**11-1,'.'
+            sys.exit()
+    
+    for i in range(len(syn_array)):
+        if const == True:
+            weight = '{0:011b}'.format(syn_data)
+        else:
+            if syn_data[i] >= 2**11:
+                print 'ERROR: Value', syn_data[i], 'cannot be converted into 11 bit binary number. Maximum encodable number is', 2**11-1,'.'
+                sys.exit()
+            weight = '{0:011b}'.format(syn_data[i])
+        syn_array[i] = map(int, list(weight))
+    
+    return syn_array
+
     
 def Reconstruct_PARAMETERS(param_bin, lengths):
     """
