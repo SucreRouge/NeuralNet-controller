@@ -43,8 +43,13 @@ class DataUDPHandler(SocketServer.BaseRequestHandler):
             else:
                 return 0
 
-        if get_cache_size(cache) >= max_cache_size:
+        cache_size = get_cache_size(cache)        
+
+        logging.debug("Cache size: %s", cache_size)
+
+        if cache_size >= max_cache_size:
             self.store_and_clear(cache, hdf5_key)
+
              
         for key, item in data.iteritems():
             cache[key].append(item)
@@ -53,6 +58,7 @@ class DataUDPHandler(SocketServer.BaseRequestHandler):
         """
         Convert the cached data dict to a DataFrame and append that to HDF5.
         """
+        logging.debug("Writing to h5 store and flushing cache.")
         df = pd.DataFrame(data)
         self.server.hdf_store.append(hdf5_key, df)
         data.clear()
@@ -60,10 +66,10 @@ class DataUDPHandler(SocketServer.BaseRequestHandler):
     def handle(self):
     
         data = self.read_pickle_stream()   
-        print data
+        
         logging.debug('reading packet: %s',data)
 
-        self.process_row(data, hdf5_key = "address", cache = self.server.cache, max_cache_size = self.server.max_cache_size)
+        self.process_row(data, hdf5_key = self.server.hdf5_key, cache = self.server.cache, max_cache_size = self.server.max_cache_size)
 
 
 # get the current timestamp and turn it into a string with second precision
@@ -74,8 +80,9 @@ now = "now"
 parser = argparse.ArgumentParser(description='Real-time h5 network data storage', epilog='And this is how you log your data.', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
 parser.add_argument('-s', '--sender_ip', metavar="", help='IP address of sending machine', type=str, default = socket.gethostname() )
-parser.add_argument('-p','--port', metavar="", help='port to listen to on sending machine', type=int, default = 6000)
+parser.add_argument('-p','--port', metavar="", help='port to listen to on sending machine', type=int, default = 60000)
 parser.add_argument('-f', '--h5_file', metavar="", help="file name for h5 storage", type=str, default = "h5_store_" + now +".h5"   )
+parser.add_argument('-k', '--h5_key', metavar="", help="h5 storage key", type=str, default = "address")
 parser.add_argument('-c','--cache_size', metavar="", help='wait for this number of data entries to be recieved before flushing cache to h5 store', type=int, default = 10)
 parser.add_argument('-l', '--log_file', metavar="", help="file name for logs", type=str, default = "h5_store_" + now +".log"   )
 
@@ -104,12 +111,15 @@ logging.info('Listen to ip address: %s', args.sender_ip )
 logging.info('Listen to port: %s', args.port )
 logging.info('Server cache size: %s', args.cache_size)
 logging.info('Arriving data is logged to h5 store: %s', args.h5_file)
+logging.info('Selected h5 key: %s', args.h5_key)
 logging.info('Log files is specified as: %s', args.log_file)
 
 server = SocketServer.UDPServer((args.sender_ip,args.port), DataUDPHandler)
 server.cache = defaultdict(list)
 server.max_cache_size = args.cache_size
+server.hdf5_key = args.h5_key
 server.hdf_store = pd.HDFStore(args.h5_file, "w")
 
 logging.info('Server ready.')
+logging.info('Server listening ...')
 server.serve_forever()
