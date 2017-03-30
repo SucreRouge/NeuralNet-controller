@@ -9,6 +9,7 @@ import matplotlib.dates as dates
 import datetime
 import numpy as np
 
+
 class DataUDPHandler(SocketServer.BaseRequestHandler):
     """
     The request handler class for our server.
@@ -67,6 +68,8 @@ class DataUDPHandler(SocketServer.BaseRequestHandler):
 
     def update_data_tail(self, hdf5_key, cache, tail_elements):
 
+        # tail_elements = pd.Timedelta(5,unit='s')
+
         if self.server.hdf_store:
 
             mask = self.server.hdf_store.select_column(hdf5_key,'index')
@@ -80,11 +83,13 @@ class DataUDPHandler(SocketServer.BaseRequestHandler):
         ydata = self.server.hdf_store_tail["address"]
 
         #Update data (with the new _and_ the old points)
-        self.server.lines.set_xdata(xdata)
-        self.server.lines.set_ydata(ydata)
+        self.server.lines1.set_xdata(xdata)
+        self.server.lines1.set_ydata(ydata)
+        self.server.ax2.cla()
+        self.server.ax2.hist(ydata, bins=range(0, max(ydata) + 1, 1))
         #Need both of these in order to rescale
-        self.server.ax.relim()
-        self.server.ax.autoscale_view()
+        self.server.ax1.relim()
+        self.server.ax1.autoscale_view()
         #We need to draw *and* flush
         self.server.fig.canvas.draw()
         self.server.fig.canvas.flush_events()
@@ -112,18 +117,27 @@ server.hdf_store = pd.HDFStore("test.h5", "w")
 server.hdf_store_tail = None
 
 # Prepare stuff for plotting
-server.fig, server.ax = plt.subplots(1, 1)
-server.lines, = server.ax.plot([],[], '+')
-server.ax.set_autoscaley_on(True)
+server.fig = plt.figure()
+
+server.ax1 = server.fig.add_subplot(211)
+server.lines1, = server.ax1.plot([],[], '+')
+server.ax1.set_autoscaley_on(True)
+server.ax1.set_xlabel('time [s]')
+server.ax1.set_ylabel('address_id')
+
+server.ax2 = server.fig.add_subplot(212)
+server.ax2.hist([])
+server.ax2.set_autoscaley_on(True)
+server.ax2.set_xlabel('address_id')
+server.ax2.set_ylabel('count')
 
 plt.xticks(rotation=45)
-server.ax.set_xlabel('time [s]')
-server.ax.set_ylabel('adress id')
-plt.subplots_adjust( bottom=0.3)
+
+# plt.subplots_adjust( bottom=0.3)
 plt.show(block=False)
 
 server.drawing = plt.plot()
-
+# plt.show()
 # Launch server. It will keep running unti Ctrl-C.
 print "Plot Server is listening ..."
 server.serve_forever()

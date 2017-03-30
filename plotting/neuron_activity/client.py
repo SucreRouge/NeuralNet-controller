@@ -22,7 +22,7 @@ def prepare_packet_data(address, event_id, initial_time_stamp):
 	data["timedelta"] = elapsed_time
 	data["address"] = address
 
-	event_id += 1   
+	
 
 	return data
 
@@ -43,14 +43,16 @@ try:
 		sleep(wait*0.001)
 		address = randint(0,dimension)
 		data = prepare_packet_data(address,event_id,initial_time_stamp)	
-		print "Client: Sending:", data
+		event_id += 1   
+		print "Client: Sending:", event_id
 		send_pickle_stream(data, sock, target= (host,port))
 		
 		# send signal that nothing is firing
 		sleep(wait*0.001)
 		address = -1
 		data = prepare_packet_data(address,event_id,initial_time_stamp)
-		print "Client: Sending:", data
+		event_id += 1   
+		# print "Client: Sending:", data
 		send_pickle_stream(data, sock, target= (host,port))
 
 finally:
