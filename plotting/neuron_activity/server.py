@@ -8,6 +8,7 @@ from matplotlib import pyplot as plt
 import matplotlib.dates as dates
 import datetime
 import numpy as np
+import time
 
 
 class DataUDPHandler(SocketServer.BaseRequestHandler):
@@ -78,6 +79,8 @@ class DataUDPHandler(SocketServer.BaseRequestHandler):
 
     def update_tail_plot(self):
 
+        now = time.time()
+
         xdata = self.server.hdf_store_tail["timedelta"]
         xdata = [x/np.timedelta64(1, 's') for x in xdata]
         ydata = self.server.hdf_store_tail["address"]
@@ -93,6 +96,8 @@ class DataUDPHandler(SocketServer.BaseRequestHandler):
         #We need to draw *and* flush
         self.server.fig.canvas.draw()
         self.server.fig.canvas.flush_events()
+
+        print "updating the plots took:", time.time()-now, "units"
 
     def handle(self):
     
