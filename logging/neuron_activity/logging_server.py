@@ -1,15 +1,9 @@
-import socket
-import SocketServer
-import pickle
+import socket, SocketServer
+import argparse
+import pickle,datetime
 import pandas as pd
-from collections import defaultdict
-import matplotlib
-from matplotlib import pyplot as plt
-import matplotlib.dates as dates
-import datetime
 import numpy as np
-import time
-
+from collections import defaultdict
 
 class DataUDPHandler(SocketServer.BaseRequestHandler):
     """
@@ -29,7 +23,7 @@ class DataUDPHandler(SocketServer.BaseRequestHandler):
         self.request[1].sendto(pickle.dumps(data), self.client_address)
         # print "done."
 
-    def process_row(self, data, hdf5_key, cache, max_cache_size, tail_elements):
+    def process_row(self, data, hdf5_key, cache, max_cache_size):
         """
         Append row data to the store 'hdf5_key'.
 
@@ -51,11 +45,7 @@ class DataUDPHandler(SocketServer.BaseRequestHandler):
 
         if get_cache_size(cache) >= max_cache_size:
             self.store_and_clear(cache, hdf5_key)
-            self.update_data_tail(hdf5_key, cache , tail_elements)
-            self.server.store_tail_changed = True
-        else:
-            self.server.store_tail_changed = False
-
+             
         for key, item in data.iteritems():
             cache[key].append(item)
 
@@ -67,82 +57,31 @@ class DataUDPHandler(SocketServer.BaseRequestHandler):
         self.server.hdf_store.append(hdf5_key, df)
         data.clear()
 
-    def update_data_tail(self, hdf5_key, cache, tail_elements):
-
-        # tail_elements = pd.Timedelta(5,unit='s')
-
-        if self.server.hdf_store:
-
-            mask = self.server.hdf_store.select_column(hdf5_key,'index')
-            df_tail = self.server.hdf_store.select(hdf5_key,where=mask[-tail_elements:].index)        
-            self.server.hdf_store_tail = df_tail.reset_index(drop=True)
-
-    def update_tail_plot(self):
-
-        now = time.time()
-
-        xdata = self.server.hdf_store_tail["timedelta"]
-        xdata = [x/np.timedelta64(1, 's') for x in xdata]
-        ydata = self.server.hdf_store_tail["address"]
-
-        #Update data (with the new _and_ the old points)
-        self.server.lines1.set_xdata(xdata)
-        self.server.lines1.set_ydata(ydata)
-        self.server.ax2.cla()
-        self.server.ax2.hist(ydata, bins=range(0, max(ydata) + 1, 1))
-        #Need both of these in order to rescale
-        self.server.ax1.relim()
-        self.server.ax1.autoscale_view()
-        #We need to draw *and* flush
-        self.server.fig.canvas.draw()
-        self.server.fig.canvas.flush_events()
-
-        print "updating the plots took:", time.time()-now, "units"
-
     def handle(self):
     
         data = self.read_pickle_stream()   
         
-        self.process_row(data, hdf5_key = "address", cache = self.server.cache, max_cache_size = self.server.max_cache_size, tail_elements = self.server.tail_elements)
-       
-        if self.server.hdf_store and self.server.store_tail_changed:
+        self.process_row(data, hdf5_key = "address", cache = self.server.cache, max_cache_size = self.server.max_cache_size)
 
-            self.update_tail_plot()
+# get the current timestamp and turn it into a string with second precision
+now = pd.Timestamp(np.datetime64(datetime.datetime.now())).strftime("%Y-%m-%d_%H:%M:%S")
 
-host = socket.gethostname()
-port = 60000
+# setup parser for command line arguments
+parser = argparse.ArgumentParser(description='Real-time data h5 network data logging.', epilog='And this is how you log your data.', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+
+parser.add_argument('-s', '--sender_ip', metavar="", help='IP address of sending machine', type=str, default = socket.gethostname() )
+parser.add_argument('-p','--port', metavar="", help='port to listen to on sending machine', type=int, default = 6000)
+parser.add_argument('-f', '--output_file', metavar="", help="file name for h5 storage", type=str, default = "h5_store_" + now +".h5"   )
+parser.add_argument('-c','--cache_size', metavar="", help='what for this number of data entries to be recieved before flushing cache to h5 store', type=int, default = 10)
+parser.add_argument('-l', "--loglevel", metavar="", help="set loglevel for logger", type=int, default=0, choices=[0, 1, 2] )
+
+args = parser.parse_args()
 
 # Create the server, binding it to host and port
-server = SocketServer.UDPServer((host,port), DataUDPHandler)
+server = SocketServer.UDPServer((args.sender_ip,args.port), DataUDPHandler)
 server.cache = defaultdict(list)
-# server.cache = {}
-server.max_cache_size = 10
-server.tail_elements = 50
-server.hdf_store = pd.HDFStore("test.h5", "w")
-server.hdf_store_tail = None
+server.max_cache_size = args.cache_size
+server.hdf_store = pd.HDFStore(args.output_file, "w")
 
-# Prepare stuff for plotting
-server.fig = plt.figure()
-
-server.ax1 = server.fig.add_subplot(211)
-server.lines1, = server.ax1.plot([],[], '+')
-server.ax1.set_autoscaley_on(True)
-server.ax1.set_xlabel('time [s]')
-server.ax1.set_ylabel('address_id')
-
-server.ax2 = server.fig.add_subplot(212)
-server.ax2.hist([])
-server.ax2.set_autoscaley_on(True)
-server.ax2.set_xlabel('address_id')
-server.ax2.set_ylabel('count')
-
-plt.xticks(rotation=45)
-
-# plt.subplots_adjust( bottom=0.3)
-plt.show(block=False)
-
-server.drawing = plt.plot()
-# plt.show()
-# Launch server. It will keep running unti Ctrl-C.
-print "Plot Server is listening ..."
+# print "Plot Server is listening ..."
 server.serve_forever()
