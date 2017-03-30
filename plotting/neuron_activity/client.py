@@ -38,7 +38,7 @@ event_id = long(0)
 
 try:
   
-	for wait in np.random.gamma(10, 10, 100):
+	for wait in np.random.gamma(10, 10, 10):
 
 		sleep(wait*0.001)
 		address = randint(0,dimension)
