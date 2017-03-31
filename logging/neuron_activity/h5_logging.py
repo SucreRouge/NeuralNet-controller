@@ -42,8 +42,8 @@ class DataUDPHandler(SocketServer.BaseRequestHandler):
         logging.debug("Finishing handler.")
 
 # get the current timestamp and turn it into a string with second precision
-now = pd.Timestamp(np.datetime64(datetime.datetime.now())).strftime("%Y-%m-%d_%H:%M:%S")
-# now = ""
+# now = pd.Timestamp(np.datetime64(datetime.datetime.now())).strftime("%Y-%m-%d_%H:%M:%S")
+now = ""
 
 # setup parser for command line arguments
 parser = argparse.ArgumentParser(description='Real-time h5 network data storage', epilog='... now this is how you log your data.', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
