@@ -34,7 +34,7 @@ class DataUDPHandler(SocketServer.BaseRequestHandler):
             logging.debug("Writing to h5 store and flushing cache.")
             df = pd.DataFrame(self.server.cache)
             self.server.hdf_store.append(self.server.hdf5_key, df)
-            data.clear()
+            self.server.cache.clear()
 
         for key, item in data.iteritems():
             self.server.cache[key].append(item)
