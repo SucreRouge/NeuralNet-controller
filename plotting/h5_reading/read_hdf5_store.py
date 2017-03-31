@@ -1,13 +1,19 @@
 import pandas as pd
 
-s = pd.read_hdf('data.store', 'address')
+h5_file = "h5_store_.h5"
+h5_key = 'address'
 
-oldest_time_stamp = s.index[-1]
+df = pd.read_hdf(h5_file, h5_key)
 
-print s
+# set index to timestamps
+df = df.set_index("timestamp")
 
-store = pd.HDFStore('data.store')
-c = store.select_column('address','index')
-print c[-5:]
-where = c[-5:].index
-print store.select('address',where=where)
+print df.tail()
+
+end_time_window = df.index.max()
+start_time_window = end_time_window - pd.DateOffset(milliseconds=1000)
+
+df_slice = df.ix[start_time_window:]
+
+print df_slice
+
