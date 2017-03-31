@@ -34,11 +34,11 @@ dimension = 30*30 - 1
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
 initial_time_stamp = pd.Timestamp(np.datetime64(datetime.datetime.now()))
-event_id = long(0)
+event_id = np.uint32(0) 		# You may log up to 4294967295 events
 
 try:
   
-	for wait in np.random.gamma(10, 10, 10):
+	for wait in np.random.gamma(10, 10, 1000):
 
 		sleep(wait*0.001)
 		address = randint(0,dimension)
