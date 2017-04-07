@@ -9,9 +9,9 @@ from helpers import *
 CLK = int(100e6) ## CLOCK speed in FPGA
 
 TAU = int(20e-3*CLK*np.log(2))         ## (0 - 16,777,215) 25bits
-THR = 8000                             ## (0 - 16,383) 14bits
+THR = 90#8000                             ## (0 - 16,383) 14bits
 INH_W = 200                            ## (0 - 16,383) 14bits
-EXT_W = 8000                           ## (0 - 16,383) 14bits                   
+EXT_W = 100#8000                           ## (0 - 16,383) 14bits                   
 TAU_PRE = int(20e-3*CLK*np.log(2))     ## (0 - 16,777,215) 25bits
 TAU_POST = int(80e-3*CLK*np.log(2))    ## (0 - 16,777,215) 25bits
 AP = 6                                 ## (0 - 15) 4bits
